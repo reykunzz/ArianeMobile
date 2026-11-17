@@ -23,6 +23,26 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var preview: TextView
     private lateinit var glView: GLSurfaceView
+    private val appLogs = mutableListOf<String>()
+    private val LOG_EXPORT = 4104
+
+    private fun addLog(message: String) {
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        synchronized(appLogs) {
+            appLogs.add("[$time] $message")
+            if (appLogs.size > 2000) appLogs.removeAt(0)
+        }
+    }
+
+    private fun exportLogs() {
+        addLog("Meminta ekspor log")
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, "SA_Map_Editor_Log.txt")
+        }
+        startActivityForResult(intent, LOG_EXPORT)
+    }
 
     private val IDE = 4101
     private val IPL = 4102
@@ -43,6 +63,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        addLog("Aplikasi dimulai")
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -78,6 +99,10 @@ class MainActivity : Activity() {
         addButton("OPEN IPL", IPL)
         addButton("OPEN IMG", IMG)
         root.addView(buttons)
+        root.addView(Button(this).apply {
+            text = "EKSPOR LOG (.TXT)"
+            setOnClickListener { exportLogs() }
+        })
 
         status = TextView(this).apply {
             text = "Belum ada file yang diimport"
@@ -102,7 +127,9 @@ class MainActivity : Activity() {
                     gl: javax.microedition.khronos.opengles.GL10?,
                     config: javax.microedition.khronos.egl.EGLConfig?
                 ) {
+                    addLog("OpenGL surface dibuat")
                     nativeCreate()
+                    addLog("nativeCreate dipanggil")
                     nativeSetCamera(cameraX, cameraY, cameraZoom)
                 }
 
@@ -111,6 +138,7 @@ class MainActivity : Activity() {
                     width: Int,
                     height: Int
                 ) {
+                    addLog("Viewport: ${width}x${height}")
                     nativeDraw(width, height)
                 }
 
@@ -228,6 +256,21 @@ class MainActivity : Activity() {
         if (resultCode != RESULT_OK) return
         val uri: Uri = data?.data ?: return
 
+        if (requestCode == LOG_EXPORT) {
+            try {
+                val content = synchronized(appLogs) {
+                    appLogs.joinToString("\n") + "\n"
+                }
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(content.toByteArray(Charsets.UTF_8))
+                } ?: throw Exception("File tidak dapat ditulis")
+                Toast.makeText(this, "Log berhasil disimpan", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
         try {
             contentResolver.takePersistableUriPermission(
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -249,6 +292,7 @@ class MainActivity : Activity() {
                 IMG -> inspectImg(filename, bytes)
             }
         } catch (e: Exception) {
+            addLog("ERROR membaca file: ${e.message}")
             status.text = "Gagal membaca file: ${e.message}"
         }
     }
@@ -305,6 +349,7 @@ class MainActivity : Activity() {
             }
 
             val count = points.size / 3
+            addLog("IPL $filename: $count objek, ${bytes.size} bytes")
             status.text = "IPL berhasil dibuka: $filename · $count objek"
 
             glView.requestRender()
