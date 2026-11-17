@@ -189,9 +189,25 @@ void GLESRenderer::draw(int width, int height) {
     }
     if (width<=0 || height<=0) return;
 
+    auto checkGL = [](const char* stage) {
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            addNativeLog(
+                std::string("GL ERROR pada ") + stage +
+                ": " + std::to_string(static_cast<unsigned int>(error))
+            );
+        }
+    };
+
+    checkGL("sebelum draw");
+
     glViewport(0,0,width,height);
+    checkGL("glViewport");
+
     glClearColor(0.055f, 0.075f, 0.11f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    checkGL("glClear");
+
     if (!program) return;
 
     std::vector<float> pointCopy;
@@ -208,6 +224,7 @@ void GLESRenderer::draw(int width, int height) {
     glUseProgram(program);
     glUniform2f(rotationLocation,rx,ry);
     glUniform1f(zoomLocation,z);
+    checkGL("uniform kamera");
 
     // Grid on the GTA ground plane (X-Y), at Z = 0.
     std::vector<float> grid;
@@ -225,8 +242,10 @@ void GLESRenderer::draw(int width, int height) {
     glBufferData(GL_ARRAY_BUFFER,
         static_cast<GLsizeiptr>(grid.size()*sizeof(float)),
         grid.data(),GL_DYNAMIC_DRAW);
+    checkGL("buffer grid");
     glUniform4f(colorLocation,0.22f,0.29f,0.38f,1.0f);
     glDrawArrays(GL_LINES,0,static_cast<GLsizei>(grid.size()/3));
+    checkGL("draw grid");
 
     // Coordinate axes
     const float axes[] = {
@@ -235,21 +254,25 @@ void GLESRenderer::draw(int width, int height) {
         0,0,-1, 0,0,1
     };
     glBufferData(GL_ARRAY_BUFFER,sizeof(axes),axes,GL_STATIC_DRAW);
+    checkGL("buffer axes");
     glUniform4f(colorLocation,0.85f,0.35f,0.30f,1.0f);
     glDrawArrays(GL_LINES,0,2);
     glUniform4f(colorLocation,0.35f,0.85f,0.45f,1.0f);
     glDrawArrays(GL_LINES,2,2);
     glUniform4f(colorLocation,0.35f,0.60f,1.0f,1.0f);
     glDrawArrays(GL_LINES,4,2);
+    checkGL("draw axes");
 
     // IPL instance positions
     if (!pointCopy.empty()) {
         glBufferData(GL_ARRAY_BUFFER,
             static_cast<GLsizeiptr>(pointCopy.size()*sizeof(float)),
             pointCopy.data(),GL_DYNAMIC_DRAW);
+        checkGL("buffer IPL");
         glUniform4f(colorLocation,1.0f,0.78f,0.25f,1.0f);
         glDrawArrays(GL_POINTS,0,
             static_cast<GLsizei>(pointCopy.size()/3));
+        checkGL("draw IPL");
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
