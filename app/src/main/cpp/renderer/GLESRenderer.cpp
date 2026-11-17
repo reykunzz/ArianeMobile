@@ -102,9 +102,32 @@ GLuint makeProgram() {
 void GLESRenderer::initialize() {
     addNativeLog("Renderer: initialize dimulai");
 
-    if (program) glDeleteProgram(program);
-    if (vbo) glDeleteBuffers(1, &vbo);
-    if (vao) glDeleteVertexArrays(1, &vao);
+    auto checkInitGL = [](const char* stage) {
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            addNativeLog(
+                std::string("INIT GL ERROR pada ") + stage +
+                ": " + std::to_string(static_cast<unsigned int>(error))
+            );
+        }
+    };
+
+    checkInitGL("sebelum hapus resource");
+
+    if (program) {
+        glDeleteProgram(program);
+        checkInitGL("glDeleteProgram");
+    }
+
+    if (vbo) {
+        glDeleteBuffers(1, &vbo);
+        checkInitGL("glDeleteBuffers");
+    }
+
+    if (vao) {
+        glDeleteVertexArrays(1, &vao);
+        checkInitGL("glDeleteVertexArrays");
+    }
 
     program = makeProgram();
 
