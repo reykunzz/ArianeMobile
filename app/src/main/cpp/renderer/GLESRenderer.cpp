@@ -1,5 +1,6 @@
 #include "GLESRenderer.h"
 #include <GLES3/gl3.h>
+#include <android/log.h>
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -14,6 +15,12 @@ GLuint compileShader(GLenum type, const char* source) {
     GLint ok = GL_FALSE;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
     if (!ok) {
+        GLint length = 0;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+        std::vector<char> log(static_cast<size_t>(length) + 1);
+        glGetShaderInfoLog(shader, length, nullptr, log.data());
+        __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
+                            "Shader compile failed: %s", log.data());
         glDeleteShader(shader);
         return 0;
     }
@@ -76,6 +83,12 @@ GLuint makeProgram() {
     GLint ok = GL_FALSE;
     glGetProgramiv(p, GL_LINK_STATUS, &ok);
     if (!ok) {
+        GLint length = 0;
+        glGetProgramiv(p, GL_INFO_LOG_LENGTH, &length);
+        std::vector<char> log(static_cast<size_t>(length) + 1);
+        glGetProgramInfoLog(p, length, nullptr, log.data());
+        __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
+                            "Program link failed: %s", log.data());
         glDeleteProgram(p);
         return 0;
     }
@@ -87,7 +100,14 @@ void GLESRenderer::initialize() {
     if (program) glDeleteProgram(program);
     program = makeProgram();
 
-    if (!program) return;
+    if (!program) {
+        __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
+                            "Renderer initialization failed");
+        return;
+    }
+
+    __android_log_print(ANDROID_LOG_INFO, "SAMapEditor",
+                        "Renderer initialized successfully");
 
     positionLocation = 0;
     colorLocation = glGetUniformLocation(program, "uColor");
@@ -144,6 +164,7 @@ void GLESRenderer::draw(int width, int height) {
     if (width<=0 || height<=0) return;
 
     glViewport(0,0,width,height);
+    glClearColor(0.055f, 0.075f, 0.11f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     if (!program) return;
 
