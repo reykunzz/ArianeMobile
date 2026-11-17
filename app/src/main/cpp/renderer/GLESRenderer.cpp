@@ -20,6 +20,8 @@ GLuint compileShader(GLenum type, const char* source) {
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> log(static_cast<size_t>(length) + 1);
         glGetShaderInfoLog(shader, length, nullptr, log.data());
+        std::string error = std::string("OpenGL shader compile failed: ") + log.data();
+        addNativeLog(error);
         __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
                             "Shader compile failed: %s", log.data());
         glDeleteShader(shader);
@@ -88,6 +90,8 @@ GLuint makeProgram() {
         glGetProgramiv(p, GL_INFO_LOG_LENGTH, &length);
         std::vector<char> log(static_cast<size_t>(length) + 1);
         glGetProgramInfoLog(p, length, nullptr, log.data());
+        std::string error = std::string("OpenGL program link failed: ") + log.data();
+        addNativeLog(error);
         __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
                             "Program link failed: %s", log.data());
         glDeleteProgram(p);
