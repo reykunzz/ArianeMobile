@@ -31,8 +31,7 @@ GLuint compileShader(GLenum type, const char* source) {
 }
 
 GLuint makeProgram() {
-    const char* vertex = R"(
-        #version 300 es
+    const char* vertex = R"(#version 300 es
         layout(location=0) in vec3 aPosition;
         uniform vec2 uRotation;
         uniform float uZoom;
@@ -62,8 +61,7 @@ GLuint makeProgram() {
         }
     )";
 
-    const char* fragment = R"(
-        #version 300 es
+    const char* fragment = R"(#version 300 es
         precision mediump float;
         uniform vec4 uColor;
         out vec4 outColor;
