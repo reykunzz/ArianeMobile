@@ -254,6 +254,23 @@ void GLESRenderer::draw(int width, int height) {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    static bool diagnosticLogged = false;
+    if (!diagnosticLogged) {
+        GLenum error = glGetError();
+
+        addNativeLog(
+            "Renderer: diagnostik draw, titik IPL=" +
+            std::to_string(pointCopy.size() / 3) +
+            ", uColor=" + std::to_string(colorLocation) +
+            ", uRotation=" + std::to_string(rotationLocation) +
+            ", uZoom=" + std::to_string(zoomLocation) +
+            ", GL error=" +
+            std::to_string(static_cast<unsigned int>(error))
+        );
+
+        diagnosticLogged = true;
+    }
 }
 
 void GLESRenderer::shutdown() {
