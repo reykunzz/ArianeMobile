@@ -1,11 +1,14 @@
 #include <jni.h>
 #include <vector>
+#include <string>
 #include "renderer/GLESRenderer.h"
+#include "NativeLog.h"
 
 static ariane::GLESRenderer g_renderer;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_ariane_mobile_MainActivity_nativeCreate(JNIEnv*, jobject) {
+    ariane::addNativeLog("JNI: nativeCreate dipanggil");
     g_renderer.initialize();
 }
 
@@ -34,4 +37,11 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_ariane_mobile_MainActivity_nativeSetCamera(
     JNIEnv*, jobject, jfloat x, jfloat y, jfloat zoom) {
     g_renderer.setCamera(x,y,zoom);
+}
+
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_ariane_mobile_MainActivity_nativeGetLogs(JNIEnv* env, jobject) {
+    const std::string logs = ariane::getNativeLogs();
+    return env->NewStringUTF(logs.c_str());
 }

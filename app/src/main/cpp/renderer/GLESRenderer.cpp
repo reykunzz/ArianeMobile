@@ -1,3 +1,4 @@
+#include "NativeLog.h"
 #include "GLESRenderer.h"
 #include <GLES3/gl3.h>
 #include <android/log.h>
@@ -97,8 +98,10 @@ GLuint makeProgram() {
 }
 
 void GLESRenderer::initialize() {
+    addNativeLog("Renderer: initialize dimulai");
     if (program) glDeleteProgram(program);
     program = makeProgram();
+    addNativeLog(program ? "Renderer: program OpenGL berhasil dibuat" : "Renderer: GAGAL membuat program OpenGL");
 
     if (!program) {
         __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
@@ -161,6 +164,11 @@ void GLESRenderer::setCamera(float x, float y, float z) {
 }
 
 void GLESRenderer::draw(int width, int height) {
+    static bool firstDrawLogged = false;
+    if (!firstDrawLogged) {
+        addNativeLog("Renderer: draw pertama, viewport " + std::to_string(width) + "x" + std::to_string(height));
+        firstDrawLogged = true;
+    }
     if (width<=0 || height<=0) return;
 
     glViewport(0,0,width,height);

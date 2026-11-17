@@ -47,6 +47,8 @@ class MainActivity : Activity() {
     private val IDE = 4101
     private val IPL = 4102
     private val IMG = 4103
+    private external fun nativeGetLogs(): String
+
 
     private external fun nativeCreate()
     private external fun nativeDraw(width: Int, height: Int)
