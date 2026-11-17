@@ -45,8 +45,7 @@ jobs:
         shell: bash
         run: |
           test -f third_party/ariane-upstream/README.md
-          test -f third_party/librw/premake5.lua
-          echo "Ariane upstream and librw submodules are present."
+          echo "Ariane upstream submodule is present."
           echo "The Android CMake target currently builds the mobile adapter/bootstrap; desktop Premake targets are not compiled for Android."
 
       - name: Build debug APK (arm64-v8a)
