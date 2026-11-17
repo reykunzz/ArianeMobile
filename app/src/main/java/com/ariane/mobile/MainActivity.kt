@@ -260,9 +260,15 @@ class MainActivity : Activity() {
 
         if (requestCode == LOG_EXPORT) {
             try {
+                val nativeLogs = try {
+                    nativeGetLogs()
+                } catch (e: Exception) {
+                    "Gagal mengambil native log: ${e.message}"
+                }
+
                 val content = synchronized(appLogs) {
                     appLogs.joinToString("\n") + "\n"
-                }
+                } + "\n===== NATIVE OPENGL LOG =====\n" + nativeLogs + "\n"
                 contentResolver.openOutputStream(uri)?.use {
                     it.write(content.toByteArray(Charsets.UTF_8))
                 } ?: throw Exception("File tidak dapat ditulis")

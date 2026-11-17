@@ -123,6 +123,7 @@ void GLESRenderer::initialize() {
 }
 
 void GLESRenderer::setPoints(const std::vector<float>& input) {
+    addNativeLog("Renderer: menerima " + std::to_string(input.size() / 3) + " titik IPL");
     std::vector<float> normalized;
     if (input.size() >= 3) {
         float minX=input[0], maxX=input[0];
