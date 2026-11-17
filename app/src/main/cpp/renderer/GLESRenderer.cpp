@@ -88,7 +88,7 @@ void GLESRenderer::initialize() {
 
     glClearColor(0.055f, 0.075f, 0.11f, 1.0f);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_PROGRAM_POINT_SIZE);
+    // GL_PROGRAM_POINT_SIZE tidak digunakan pada OpenGL ES.
 }
 
 void GLESRenderer::setPoints(const std::vector<float>& input) {
