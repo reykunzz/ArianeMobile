@@ -103,27 +103,42 @@ GLuint makeProgram() {
 
 void GLESRenderer::initialize() {
     addNativeLog("Renderer: initialize dimulai");
+
     if (program) glDeleteProgram(program);
+    if (vbo) glDeleteBuffers(1, &vbo);
+    if (vao) glDeleteVertexArrays(1, &vao);
+
     program = makeProgram();
-    addNativeLog(program ? "Renderer: program OpenGL berhasil dibuat" : "Renderer: GAGAL membuat program OpenGL");
 
     if (!program) {
-        __android_log_print(ANDROID_LOG_ERROR, "SAMapEditor",
-                            "Renderer initialization failed");
+        addNativeLog("Renderer: GAGAL membuat program OpenGL");
         return;
     }
-
-    __android_log_print(ANDROID_LOG_INFO, "SAMapEditor",
-                        "Renderer initialized successfully");
 
     positionLocation = 0;
     colorLocation = glGetUniformLocation(program, "uColor");
     rotationLocation = glGetUniformLocation(program, "uRotation");
     zoomLocation = glGetUniformLocation(program, "uZoom");
 
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    glEnableVertexAttribArray(positionLocation);
+    glVertexAttribPointer(
+        positionLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr
+    );
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
     glClearColor(0.055f, 0.075f, 0.11f, 1.0f);
     glEnable(GL_DEPTH_TEST);
-    // GL_PROGRAM_POINT_SIZE tidak digunakan pada OpenGL ES.
+
+    addNativeLog("Renderer: VAO dan VBO berhasil dibuat");
+    addNativeLog("Renderer: initialize selesai");
 }
 
 void GLESRenderer::setPoints(const std::vector<float>& input) {
@@ -204,13 +219,10 @@ void GLESRenderer::draw(int width, int height) {
         grid.insert(grid.end(),{v,-1.0f,0.0f, v,1.0f,0.0f});
     }
 
-    GLuint vao=0,vbo=0;
-    glGenVertexArrays(1,&vao);
-    glGenBuffers(1,&vbo);
+    if (!vao || !vbo) return;
+
     glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER,vbo);
-    glEnableVertexAttribArray(positionLocation);
-    glVertexAttribPointer(positionLocation,3,GL_FLOAT,GL_FALSE,0,nullptr);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
     glBufferData(GL_ARRAY_BUFFER,
         static_cast<GLsizeiptr>(grid.size()*sizeof(float)),
@@ -242,15 +254,26 @@ void GLESRenderer::draw(int width, int height) {
             static_cast<GLsizei>(pointCopy.size()/3));
     }
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-    glDeleteBuffers(1,&vbo);
-    glDeleteVertexArrays(1,&vao);
 }
 
 void GLESRenderer::shutdown() {
+    if (vbo) {
+        glDeleteBuffers(1, &vbo);
+        vbo = 0;
+    }
+
+    if (vao) {
+        glDeleteVertexArrays(1, &vao);
+        vao = 0;
+    }
+
     if (program) {
         glDeleteProgram(program);
-        program=0;
+        program = 0;
     }
+
+    addNativeLog("Renderer: seluruh resource GPU dibersihkan");
 }
 }

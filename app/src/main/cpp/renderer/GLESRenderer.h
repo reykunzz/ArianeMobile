@@ -13,6 +13,8 @@ public:
 
 private:
     unsigned int program{};
+    unsigned int vao{};
+    unsigned int vbo{};
     int positionLocation{-1};
     int colorLocation{-1};
     int rotationLocation{-1};
