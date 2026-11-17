@@ -32,14 +32,22 @@ GLuint makeProgram() {
             float cx = cos(uRotation.x);
             float sx = sin(uRotation.x);
 
-            vec3 p;
-            p.x = aPosition.x * cy - aPosition.z * sy;
-            p.z = aPosition.x * sy + aPosition.z * cy;
-            p.y = aPosition.y * cx - p.z * sx;
-            p.z = aPosition.y * sx + p.z * cx;
+            // GTA SA: X-Y adalah bidang tanah, Z adalah ketinggian.
+            float x = aPosition.x;
+            float y = aPosition.y;
+            float z = aPosition.z;
 
-            gl_Position = vec4(p.x * uZoom, p.y * uZoom,
-                               p.z * 0.25, 1.0);
+            // Rotasi mengelilingi sumbu Z (vertikal GTA).
+            float groundX = x * cy - y * sy;
+            float groundY = x * sy + y * cy;
+
+            // Sudut pandang kamera: miringkan bidang tanah.
+            float screenY = groundY * cx - z * sx;
+            float depth = groundY * sx + z * cx;
+
+            gl_Position = vec4(groundX * uZoom,
+                               screenY * uZoom,
+                               depth * 0.25, 1.0);
             gl_PointSize = 6.0;
         }
     )";
@@ -154,12 +162,12 @@ void GLESRenderer::draw(int width, int height) {
     glUniform2f(rotationLocation,rx,ry);
     glUniform1f(zoomLocation,z);
 
-    // Grid on the X-Z plane
+    // Grid on the GTA ground plane (X-Y), at Z = 0.
     std::vector<float> grid;
     for (int i=-10;i<=10;i++) {
         float v=i/10.0f;
-        grid.insert(grid.end(),{-1.0f,0.0f,v, 1.0f,0.0f,v});
-        grid.insert(grid.end(),{v,0.0f,-1.0f, v,0.0f,1.0f});
+        grid.insert(grid.end(),{-1.0f,v,0.0f, 1.0f,v,0.0f});
+        grid.insert(grid.end(),{v,-1.0f,0.0f, v,1.0f,0.0f});
     }
 
     GLuint vao=0,vbo=0;
