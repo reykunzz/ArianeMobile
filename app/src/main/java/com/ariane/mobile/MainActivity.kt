@@ -4,47 +4,63 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.hypot
 
 class MainActivity : Activity() {
 
+    companion object {
+        init { System.loadLibrary("ariane_mobile") }
+    }
+
     private lateinit var status: TextView
     private lateinit var preview: TextView
-    private lateinit var viewport: TextView
+    private lateinit var glView: GLSurfaceView
 
     private val IDE = 4101
     private val IPL = 4102
     private val IMG = 4103
+
+    private external fun nativeCreate()
+    private external fun nativeDraw(width: Int, height: Int)
+    private external fun nativeDestroy()
+    private external fun nativeSetPoints(points: FloatArray)
+    private external fun nativeSetCamera(x: Float, y: Float, zoom: Float)
+
+    private var cameraX = 0.65f
+    private var cameraY = 0.55f
+    private var cameraZoom = 1.0f
+    private var lastX = 0f
+    private var lastY = 0f
+    private var lastDistance = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
+            setPadding(12, 12, 12, 12)
             setBackgroundColor(Color.rgb(17, 24, 39))
         }
 
-        val title = TextView(this).apply {
+        root.addView(TextView(this).apply {
             text = "ARIANE MOBILE"
             textSize = 24f
             setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER_VERTICAL
-        }
+        })
 
-        val subtitle = TextView(this).apply {
-            text = "GTA San Andreas Classic · Standalone Editor"
+        root.addView(TextView(this).apply {
+            text = "GTA San Andreas Classic · 3D Map Editor"
             textSize = 12f
             setTextColor(Color.LTGRAY)
-        }
-
-        root.addView(title)
-        root.addView(subtitle)
+        })
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -55,57 +71,109 @@ class MainActivity : Activity() {
                 text = label
                 setOnClickListener { openFile(code) }
             }
-            buttons.addView(
-                button,
-                LinearLayout.LayoutParams(0, 54, 1f)
-            )
+            buttons.addView(button, LinearLayout.LayoutParams(0, 50, 1f))
         }
 
         addButton("OPEN IDE", IDE)
         addButton("OPEN IPL", IPL)
         addButton("OPEN IMG", IMG)
-
         root.addView(buttons)
 
         status = TextView(this).apply {
             text = "Belum ada file yang diimport"
             textSize = 13f
             setTextColor(Color.rgb(120, 220, 160))
-            setPadding(4, 12, 4, 12)
+            setPadding(4, 8, 4, 8)
         }
         root.addView(status)
 
-        val viewportTitle = TextView(this).apply {
-            text = "3D VIEWPORT"
-            textSize = 16f
+        root.addView(TextView(this).apply {
+            text = "3D VIEWPORT · Drag untuk rotasi · Pinch untuk zoom"
+            textSize = 14f
+            gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
+            setPadding(0, 4, 0, 6)
+        })
+
+        glView = GLSurfaceView(this).apply {
+            setEGLContextClientVersion(3)
+            setRenderer(object : GLSurfaceView.Renderer {
+                override fun onSurfaceCreated(
+                    gl: javax.microedition.khronos.opengles.GL10?,
+                    config: javax.microedition.khronos.egl.EGLConfig?
+                ) {
+                    nativeCreate()
+                    nativeSetCamera(cameraX, cameraY, cameraZoom)
+                }
+
+                override fun onSurfaceChanged(
+                    gl: javax.microedition.khronos.opengles.GL10?,
+                    width: Int,
+                    height: Int
+                ) {
+                    nativeDraw(width, height)
+                }
+
+                override fun onDrawFrame(
+                    gl: javax.microedition.khronos.opengles.GL10?
+                ) {
+                    nativeDraw(width, height)
+                }
+            })
+            renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+            setBackgroundColor(Color.rgb(14, 20, 32))
         }
-        root.addView(viewportTitle)
 
-        viewport = TextView(this).apply {
-            text = "Ariane 3D Editor\n\nBelum ada map dimuat\n\nImport IDE dan IPL untuk memulai"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setTextColor(Color.LTGRAY)
-            setBackgroundColor(Color.rgb(31, 41, 55))
+        glView.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.x
+                    lastY = event.y
+                    true
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (event.pointerCount >= 2) {
+                        lastDistance = distance(event)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (event.pointerCount >= 2) {
+                        val d = distance(event)
+                        if (lastDistance > 0f && d > 0f) {
+                            cameraZoom *= d / lastDistance
+                            cameraZoom = cameraZoom.coerceIn(0.25f, 5f)
+                            lastDistance = d
+                            updateCamera()
+                        }
+                    } else {
+                        cameraY += (event.x - lastX) * 0.008f
+                        cameraX += (event.y - lastY) * 0.008f
+                        cameraX = cameraX.coerceIn(-1.5f, 1.5f)
+                        lastX = event.x
+                        lastY = event.y
+                        updateCamera()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_POINTER_UP -> {
+                    lastDistance = 0f
+                    true
+                }
+                else -> true
+            }
         }
 
-        root.addView(
-            viewport,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                210
-            )
-        )
+        root.addView(glView, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 260
+        ))
 
-        val previewTitle = TextView(this).apply {
+        root.addView(TextView(this).apply {
             text = "FILE INSPECTOR"
             textSize = 15f
             setTextColor(Color.WHITE)
-            setPadding(0, 12, 0, 6)
-        }
-        root.addView(previewTitle)
+            setPadding(0, 8, 0, 5)
+        })
 
         preview = TextView(this).apply {
             text = "Hasil import file akan muncul di sini."
@@ -119,16 +187,25 @@ class MainActivity : Activity() {
             addView(preview)
         }
 
-        root.addView(
-            scroll,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
+        root.addView(scroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
 
         setContentView(root)
+    }
+
+    private fun distance(e: MotionEvent): Float {
+        if (e.pointerCount < 2) return 0f
+        return hypot(
+            (e.getX(0) - e.getX(1)).toDouble(),
+            (e.getY(0) - e.getY(1)).toDouble()
+        ).toFloat()
+    }
+
+    private fun updateCamera() {
+        glView.queueEvent {
+            nativeSetCamera(cameraX, cameraY, cameraZoom)
+        }
     }
 
     private fun openFile(code: Int) {
@@ -148,15 +225,12 @@ class MainActivity : Activity() {
         data: Intent?
     ) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (resultCode != RESULT_OK) return
-
         val uri: Uri = data?.data ?: return
 
         try {
             contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (_: Exception) {}
 
@@ -167,8 +241,7 @@ class MainActivity : Activity() {
 
             val filename = uri.lastPathSegment
                 ?.substringAfterLast('/')
-                ?.substringAfterLast(':')
-                ?: "Unknown"
+                ?.substringAfterLast(':') ?: "Unknown"
 
             when (requestCode) {
                 IDE -> inspectTextFile("IDE", filename, bytes)
@@ -180,6 +253,42 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun parseInstances(content: String): FloatArray {
+        val result = ArrayList<Float>()
+        var inInst = false
+
+        content.lineSequence().forEach { raw ->
+            val line = raw.trim()
+            if (line.isEmpty() || line.startsWith("#")) return@forEach
+
+            when (line.lowercase()) {
+                "inst" -> {
+                    inInst = true
+                    return@forEach
+                }
+                "end" -> {
+                    inInst = false
+                    return@forEach
+                }
+            }
+
+            if (!inInst) return@forEach
+
+            val fields = line.split(',')
+            if (fields.size < 11) return@forEach
+
+            try {
+                result.add(fields[3].trim().toFloat())
+                result.add(fields[4].trim().toFloat())
+                result.add(fields[5].trim().toFloat())
+            } catch (_: Exception) {
+                // Abaikan baris IPL yang tidak valid.
+            }
+        }
+
+        return result.toFloatArray()
+    }
+
     private fun inspectTextFile(
         type: String,
         filename: String,
@@ -187,68 +296,78 @@ class MainActivity : Activity() {
     ) {
         val content = String(bytes, Charsets.UTF_8)
         val lines = content.lines()
-
         val nonEmpty = lines.count { it.trim().isNotEmpty() }
 
-        val instCount = lines.count {
-            val line = it.trim()
-            line.contains(",") &&
-            line.firstOrNull()?.isDigit() == true
+        if (type == "IPL") {
+            val points = parseInstances(content)
+            glView.queueEvent {
+                nativeSetPoints(points)
+            }
+
+            val count = points.size / 3
+            status.text = "IPL berhasil dibuka: $filename · $count objek"
+
+            glView.requestRender()
+            preview.text = buildString {
+                appendLine("FORMAT: IPL")
+                appendLine("FILE: $filename")
+                appendLine("SIZE: ${bytes.size} bytes")
+                appendLine("TOTAL LINES: ${lines.size}")
+                appendLine("INSTANCE OBJECTS: $count")
+                if (count == 0) {
+                    appendLine()
+                    appendLine("Tidak ditemukan entri pada section inst.")
+                    appendLine("File ini mungkin berisi path, occl, atau section lain.")
+                }
+                appendLine()
+                appendLine("----- CONTENT PREVIEW -----")
+                appendLine(lines.take(35).joinToString("\n"))
+            }
+            return
         }
 
         status.text = "$type berhasil dibuka: $filename"
-
         preview.text = buildString {
             appendLine("FORMAT: $type")
             appendLine("FILE: $filename")
             appendLine("SIZE: ${bytes.size} bytes")
             appendLine("TOTAL LINES: ${lines.size}")
             appendLine("NON-EMPTY LINES: $nonEmpty")
-
-            if (type == "IPL") {
-                appendLine("POTENTIAL IPL ENTRIES: $instCount")
-            }
-
             appendLine()
             appendLine("----- CONTENT PREVIEW -----")
             appendLine(lines.take(35).joinToString("\n"))
         }
-
-        viewport.text =
-            "$type LOADED\n\n$filename\n\nFile berhasil dibaca.\n3D map rendering belum terhubung."
     }
 
     private fun inspectImg(filename: String, bytes: ByteArray) {
         val magic = if (bytes.size >= 4) {
             String(bytes.copyOfRange(0, 4), Charsets.US_ASCII)
-        } else {
-            "UNKNOWN"
-        }
+        } else "UNKNOWN"
 
         var entryCount = -1
-
         if (magic == "VER2" && bytes.size >= 8) {
             entryCount = ByteBuffer.wrap(bytes, 4, 4)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .int
+                .order(ByteOrder.LITTLE_ENDIAN).int
         }
 
         status.text = "IMG berhasil dibuka: $filename"
-
         preview.text = buildString {
             appendLine("FORMAT: IMG ARCHIVE")
             appendLine("FILE: $filename")
             appendLine("SIZE: ${bytes.size} bytes")
             appendLine("HEADER: $magic")
-
-            if (entryCount >= 0) {
-                appendLine("INDEX ENTRIES: $entryCount")
-            } else {
-                appendLine("Index belum dikenali oleh inspector.")
-            }
+            if (entryCount >= 0) appendLine("INDEX ENTRIES: $entryCount")
+            else appendLine("Index belum dikenali oleh inspector.")
         }
+    }
 
-        viewport.text =
-            "IMG ARCHIVE LOADED\n\n$filename\n\nHeader: $magic\n\nModel 3D belum dimuat."
+    override fun onPause() {
+        glView.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        glView.onResume()
     }
 }
